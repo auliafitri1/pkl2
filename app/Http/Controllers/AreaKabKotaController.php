@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
-
+use Inertia\Inertia;
 use App\Models\AreaKabKota;
 use Illuminate\Http\Request;
 
@@ -33,15 +33,20 @@ class AreaKabKotaController extends Controller
             return $query->where('IdPropinsi', 'like', '%' . $keyword . '%');
         });
 
-        $data = $data->orderBy($sort, $order)->paginate(11);
+        $data = $data->orderBy($sort, $order)->paginate(8);
         
-        return view('kabkota.index', compact('data', 'sort', 'order'));
+        return Inertia::render('KabKota/Index', [
+            'data' => $data,
+            'filters' => $request->all(),
+            'sort' => $sort,
+            'order' => $order,
+        ]);
 
 }
 
     public function create()
     {
-        return view('kabkota.create');
+         return \Inertia\Inertia::render('KabKota/Create');
     }
 
     public function store(Request $request)
@@ -71,7 +76,9 @@ class AreaKabKotaController extends Controller
     public function edit($id)
     {
         $kabkota = AreaKabKota::findOrFail($id);
-        return view('kabkota.edit', compact('kabkota'));
+        return \Inertia\Inertia::render('KabKota/Edit', [
+            'kabkota' => $kabkota
+        ]);
     }
 
     public function update(Request $request, $id)
@@ -100,5 +107,41 @@ class AreaKabKotaController extends Controller
         $kabkota->delete();
 
         return redirect('/kabkota')->with('success', 'Data propinsi berhasil dihapus!');
+    }
+
+     public function loadMore(Request $request)
+    {
+         $sort = $request->input('sort', 'IdKabkota');
+        //default: IdPropinsi
+
+        $order = $request->input('order', 'asc');
+        //default: ascending
+
+        $page  = $request->input('page', 2);
+
+        $data = AreaKabKota::query();
+
+        $data->when(request('id_kabkota'),
+        function($query, $keyword) {
+            return $query->where('IdKabKota', 'like', '%' . $keyword . '%');
+        });
+
+        $data->when(request('kabupatenkota'),
+        function($query, $keyword) {
+            return $query->where('KabupatenKota', 'like', '%' . $keyword . '%');
+        });
+
+        $data->when(request('id_propinsi'),
+        function($query, $keyword) {
+            return $query->where('IdPropinsi', 'like', '%' . $keyword . '%');
+        });
+
+        $data = $data->orderBy($sort, $order)->paginate(8, ['*'], 'page', $page);
+        
+        return response()->json([
+        'data'     => $data->items(),
+        'hasMore'  => $data->hasMorePages(),
+        'nextPage' => $data->currentPage() + 1,
+    ]);
     }
 }
